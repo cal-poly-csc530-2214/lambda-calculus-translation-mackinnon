@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "LCTranslator": {
+      "commandName": "Project",
+      "commandLineArgs": "-i Tests/nested_simple.txt",
+      "workingDirectory": "C:\\Users\\macki\\Documents\\GitHub\\lambda-calculus-translation-mackinnon"
+    }
+  }
+}
