@@ -2,6 +2,7 @@
 {
     internal interface IExprVisitor<T>
     {
+        T Visit(UndefinedExpr e);
         T Visit(NumExpr e);
         T Visit(IdExpr e);
         T Visit(LambdaExpr e);

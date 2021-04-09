@@ -1,79 +1,97 @@
 ﻿namespace LCTranslator
 {
-    internal static class Parser
+    internal class Parser
     {
-        public static Expr ParseProgram(string program)
-            => ParseExpression(new Tokenizer(program));
+        private readonly Tokenizer _tokens;
+        private readonly TypeInferrer _typeInferrer = new();
 
-        private static Expr ParseExpression(Tokenizer tokens)
-            => ParseExpression(tokens, tokens.GetNext());
+        public Parser(string program)
+        {
+            _tokens = new Tokenizer(program);
+        }
 
-        private static Expr ParseExpression(Tokenizer tokens, string firstToken)
+        public Expr ParseProgram() => ParseExpression(new Scope());
+
+        private Expr ParseExpression(Scope scope) => ParseExpression(scope, _tokens.GetNext());
+
+        private Expr ParseExpression(Scope scope, string firstToken)
             => firstToken switch
             {
-                "(" => ParseParenthesizedExpression(tokens),
+                "(" => ParseParenthesizedExpression(scope),
                 var s when int.TryParse(s, out var i) => new NumExpr(i),
-                var id => new IdExpr(id)
+                var id => scope.GetIdExpr(id)
             };
 
-        private static Expr ParseParenthesizedExpression(Tokenizer tokens)
+        private Expr ParseParenthesizedExpression(Scope scope)
         {
-            var token = tokens.GetNext();
+            var firstToken = _tokens.GetNext();
 
-            Expr expr = token switch
+            Expr expr = firstToken switch
             {
-                "/" => ParseLambda(tokens),
-                "+" => ParseArithmetic(tokens, ArithmeticOperation.Add),
-                "*" => ParseArithmetic(tokens, ArithmeticOperation.Multiply),
-                "ifleq0" => ParseIfleq0(tokens),
-                "println" => ParsePrintln(tokens),
-                _ => ParseCall(tokens, token),
+                "/" => ParseLambda(scope),
+                "+" => ParseArithmetic(scope, ArithmeticOperation.Add),
+                "*" => ParseArithmetic(scope, ArithmeticOperation.Multiply),
+                "ifleq0" => ParseIfleq0(scope),
+                "println" => ParsePrintln(scope),
+                _ => ParseCall(scope, firstToken),
             };
 
-            tokens.CheckNext(")");
+            _tokens.CheckNext(")");
 
             return expr;
         }
 
-        private static CallExpr ParseCall(Tokenizer tokens, string firstToken)
+        private CallExpr ParseCall(Scope scope, string firstToken)
         {
-            var func = ParseExpression(tokens, firstToken);
-            var arg = ParseExpression(tokens);
+            var func = ParseExpression(scope, firstToken);
+            var arg = ParseExpression(scope);
+
+            _typeInferrer.SignalExpectedType(func, new FuncTy(arg.Type, new UndefinedTy()));
 
             return new CallExpr(func, arg);
         }
 
-        private static LambdaExpr ParseLambda(Tokenizer tokens)
+        private LambdaExpr ParseLambda(Scope scope)
         {
-            var id = tokens.GetNext();
+            var id = new IdExpr(_tokens.GetNext());
 
-            tokens.CheckNext("=>");
+            _tokens.CheckNext("=>");
 
-            var body = ParseExpression(tokens);
+            var lambdaScope = new Scope(scope);
+            lambdaScope.AddIdExpr(id); // We can't infer the type of the id until we use it.
+
+            var body = ParseExpression(lambdaScope);
 
             return new LambdaExpr(id, body);
         }
 
-        private static ArithmeticExpr ParseArithmetic(Tokenizer reader, ArithmeticOperation operation)
+        private ArithmeticExpr ParseArithmetic(Scope scope, ArithmeticOperation operation)
         {
-            var left = ParseExpression(reader);
-            var right = ParseExpression(reader);
+            var left = ParseExpression(scope);
+            var right = ParseExpression(scope);
+
+            _typeInferrer.SignalExpectedType(left, new NumTy());
+            _typeInferrer.SignalExpectedType(right, new NumTy());
 
             return new ArithmeticExpr(operation, left, right);
         }
 
-        private static Ifleq0Expr ParseIfleq0(Tokenizer reader)
+        private Ifleq0Expr ParseIfleq0(Scope scope)
         {
-            var operand = ParseExpression(reader);
-            var then = ParseExpression(reader);
-            var els = ParseExpression(reader);
+            var operand = ParseExpression(scope);
+            var then = ParseExpression(scope);
+            var els = ParseExpression(scope);
+
+            _typeInferrer.SignalExpectedType(operand, new NumTy());
 
             return new Ifleq0Expr(operand, then, els);
         }
 
-        private static PrintlnExpr ParsePrintln(Tokenizer reader)
+        private PrintlnExpr ParsePrintln(Scope scope)
         {
-            var expr = ParseExpression(reader);
+            var expr = ParseExpression(scope);
+
+            _typeInferrer.SignalExpectedType(expr, new NumTy());
 
             return new PrintlnExpr(expr);
         }
