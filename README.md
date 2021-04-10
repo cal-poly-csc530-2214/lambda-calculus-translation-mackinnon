@@ -3,10 +3,10 @@
 This project translates a lambda calculus (LC) program into a single, valid C# expression.
 
 ### Overview
-The program reads LC either from an input file or from standard in. From there, it parses the program, generating an abstract syntax tree (AST) representing the program. Then, the type inferrer processes the AST and generates type information for each node in the tree. If the type inferrence succeeds (more on that later), the AST is translated into "typed LC" and C#, with both translations outputted to standard out. The user may then optionally run the generated C# expression by typing 'y' when prompted.
+The program reads LC either from an input file or standard in. From there, it parses the program, generating an abstract syntax tree (AST) representation. Then, the type inferrer processes the AST and generates type information for each node in the tree. If the type inference succeeds (more on that later), the AST is translated into "typed LC" and C#, with both translations outputted to standard out. The user may then optionally run the generated C# expression by typing 'y' when prompted.
 
-### Type Inferrence
-Easily the most interesting challenge of this project was the type inferrence mechanism. Being a typed language, C# requires that anonymous functions declare their argument and return types explicitly. For example, here is a lambda calculus program and its equivalent C# expression:
+### Type Inference
+Easily the most interesting challenge of this project was the type inference mechanism. Being a typed language, C# requires that anonymous functions declare their argument and return types explicitly.<sup>[1](#f1)</sup> For example, here is a lambda calculus program and its equivalent C# expression:
 
 ```
 LC:
@@ -26,7 +26,7 @@ Turns out, this program can't be translated to C#. We can't infer the type of th
 
 Conceptually, my type inferrer works by initially assigning every node in the AST with an `undefined` type, then working its way down the AST from the top. At each level, there is an "expected" return type, and the current AST node is expected to match that return type. If the types can't be matched, this signals a type error. For example, in the program `(/ x => (+ x 1))`, we can infer the type of `x` because the `+` expression expects both its operands to be numbers.
 
-However, a pure top-down type inferrence approach isn't always sufficient. Consider the following LC program:
+However, a pure top-down type inference approach isn't always sufficient. Consider the following LC program:
 
 ```
 (((/ x => x)
@@ -35,4 +35,6 @@ However, a pure top-down type inferrence approach isn't always sufficient. Consi
 
 The type of the program can't be inferred until `(/ x => x)` is inferred, which can't be inferred until `x` is inferred, which can't be inferred until `(/ y => y)` is inferred, which can't be inferred until `y` is inferred from the value `42`. Thus, as the type inferrer works its way back up the AST from inferring the type of `y`, it needs to update both the return and argument types of each lambda expression. So, my type inferrer works its way all the way down the AST, and then all the way back up in order to find the complete type of the program. If there are any AST nodes with `undefined` types, the translation will fail because part of the program was ambiguous in type.
 
-The less interesting aspects of type inferrence include managing variable scopes and identifying when a variable is used in two incompatible ways type-wise, so I'm not going to talk about that here. The type inferrence code is located in `LCTranslator/Analysis/TypeInferrer.cs`.
+The less interesting aspects of type inference include managing variable scopes and identifying when a variable is used in two incompatible ways type-wise, so I'm not going to talk about that here. The type inference code is located in `LCTranslator/Analysis/TypeInferrer.cs`.
+
+<a name="footnote"><sup>1</sup></a> In practice, you _could_ fudge the types by upcasting everything to `object` and only downcasting to `int` or `Func<object, object>` when necessary, avoiding the hassle of type inference. This was something I considered, but I thought it would be better and more C#-like if all generated code could be statically validated (thus guaranteeing no runtime exceptions).
