@@ -25,7 +25,11 @@ namespace LCTranslator.Translation
             => $"{e.Left.Accept(this)} {e.Operation.AsChar()} {e.Right.Accept(this)}";
 
         string IExprVisitor<string>.Visit(Ifleq0Expr e)
-            => $"{e.Operand.Accept(this)} <= 0 ? {e.Then.Accept(this)} : {e.Else.Accept(this)}";
+            => e.Type switch
+            {
+                VoidTy => $"{{ if ({e.Operand.Accept(this)} <= 0) {{ {e.Then.Accept(this)}; }} else {{ {e.Else.Accept(this)}; }} }}",
+                _ => $"{e.Operand.Accept(this)} <= 0 ? {e.Then.Accept(this)} : {e.Else.Accept(this)}"
+            };
 
         string IExprVisitor<string>.Visit(PrintlnExpr e)
             => $"Console.WriteLine({e.Expr.Accept(this)})";

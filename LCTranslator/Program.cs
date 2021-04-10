@@ -81,7 +81,17 @@ namespace LCTranslator
 
             Console.WriteLine("Running C# code...");
 
-            var state = await script.RunAsync();
+            ScriptState<object> state;
+
+            try
+            {
+                state = await script.RunAsync();
+            }
+            catch (CompilationErrorException e)
+            {
+                Console.Error.WriteLine($"A compilation error occurred: {e.Message}");
+                return false;
+            }
 
             if (state.Exception is not null)
             {
