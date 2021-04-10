@@ -1,14 +1,13 @@
-﻿using System;
+﻿using LCTranslator.AST;
 
-namespace LCTranslator.Translators
+namespace LCTranslator.Translation
 {
     internal class ExprToLCTranslator : IExprVisitor<string>
     {
+        private readonly TyToLCTranslator _tyTranslator = new();
+
         public string Translate(Expr e)
             => e.Accept(this);
-
-        public string Visit(UndefinedExpr e)
-            => throw new InvalidOperationException("Cannot translate an undefined expression.");
 
         string IExprVisitor<string>.Visit(NumExpr e)
             => e.Num.ToString();
@@ -17,13 +16,12 @@ namespace LCTranslator.Translators
             => e.Id;
 
         string IExprVisitor<string>.Visit(LambdaExpr e)
-            => $"(/ {e.Id.Accept(this)}: {e.Id.Type} => {e.Body.Accept(this)})";
-            //=> $"(/ {e.Id.Accept(this)} => {e.Body.Accept(this)})";
+            => $"(/ {_tyTranslator.Translate(e.Type)} {e.IdExpr.Accept(this)} => {e.BodyExpr.Accept(this)})";
 
         string IExprVisitor<string>.Visit(CallExpr e)
-            => $"({e.Func.Accept(this)} {e.Arg.Accept(this)})";
+            => $"({e.FuncExpr.Accept(this)} {e.ArgExpr.Accept(this)})";
 
-        string IExprVisitor<string>.Visit(ArithmeticExpr e)
+        string IExprVisitor<string>.Visit(ArithExpr e)
             => $"({e.Operation.AsChar()} {e.Left.Accept(this)} {e.Right.Accept(this)})";
 
         string IExprVisitor<string>.Visit(Ifleq0Expr e)

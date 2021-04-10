@@ -1,74 +1,123 @@
-﻿using LCTranslator.Translators;
+﻿using LCTranslator.Analysis;
+using LCTranslator.Translation;
+using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
 using System;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace LCTranslator
 {
     internal class Program
     {
-        private static int Main(string[] args)
+        private static async Task<int> Main(string[] args)
         {
             if (!TryParseCommandLineArgs(args, out var inFile))
             {
-                PrintUsage();
+                Console.Error.WriteLine($"Usage: {AppDomain.CurrentDomain.FriendlyName} [-i in_file]");
                 return 1;
             }
 
-            string lcText;
-
-            if (string.IsNullOrWhiteSpace(inFile))
+            if (!TryReadFileText(inFile, out var lcText))
             {
-                lcText = Console.In.ReadToEnd();
-            }
-            else
-            {
-                try
-                {
-                    lcText = File.ReadAllText(inFile);
-                }
-                catch (Exception e)
-                {
-                    Console.Error.WriteLine($"Unable to open file for reading: {e.Message}");
-                    return 1;
-                }
+                return 1;
             }
 
-            Expr program;
+            if (!TryTranslate(lcText, out var cSharp))
+            {
+                return 1;
+            }
 
+            if (!DoesUserWantToRun())
+            {
+                Console.WriteLine("Weak.");
+                return 0;
+            }
+
+            Console.WriteLine("So you have chosen death.");
+
+            if (!await TryRunCSharpAsync(cSharp))
+            {
+                return 1;
+            }
+
+            // We did it!
+            return 0;
+        }
+
+        private static bool TryTranslate(string lcCode, out string cSharpCode)
+        {
             try
             {
-                var parser = new Parser(lcText);
-                program = parser.ParseProgram();
+                var parser = new Parser(lcCode);
+                var typeInferrer = new TypeInferrer();
+                var lcTranslator = new ExprToLCTranslator();
+                var cSharpTranslator = new ExprToCSharpTranslator();
+
+                var program = parser.ParseExpression();
+                typeInferrer.InferTypes(program);
+
+                var typedLcCode = lcTranslator.Translate(program);
+                cSharpCode = cSharpTranslator.Translate(program);
+
+                Console.WriteLine($"---Translated LC (typed)---\n{typedLcCode}\n");
+                Console.WriteLine($"-------Translated C#-------\n{cSharpCode}\n");
+
+                return true;
             }
             catch (LCException e)
             {
+                cSharpCode = string.Empty;
+
                 Console.Error.WriteLine($"ERROR: {e.Message}");
-                return 1;
+                return false;
+            }
+        }
+
+        private static async Task<bool> TryRunCSharpAsync(string cSharp)
+        {
+            var script = CSharpScript.Create(cSharp)
+                .WithOptions(ScriptOptions.Default.WithImports("System"));
+
+            Console.WriteLine("Running C# code...");
+
+            var state = await script.RunAsync();
+
+            if (state.Exception is not null)
+            {
+                Console.Error.WriteLine($"Exception encountered in script: {state.Exception.Message}");
+                return false;
             }
 
-            // TODO: Implement the LC -> C# translator.
-            var lcTranslator = new ExprToLCTranslator();
-            var lc = lcTranslator.Translate(program);
+            Console.WriteLine($"Expression returned '{state.ReturnValue ?? "void"}'.");
 
-            Console.WriteLine(lc); // Should match original LC.
+            return true;
+        }
 
-            //var result3 = new Func<Func<Func<Func<int, int>, int>, int>, int>(x => x(y => y()));
-            //var result3 = new Func<Func<int, int>, int>((x => x)((y => y)(z => z)));
-            //var result3 = new Func<int, Func<int, Func<int, int>>>(z => y => x => x)(3);
+        private static bool DoesUserWantToRun()
+        {
+            Console.Write("Would you like to run the C# code (y/n)? ");
 
-            // INTERESTING:
-            //var result3 = new Func<int, Func<int, Func<int, int>>>(x => new Func<int, Func<int, int>>(y => new Func<int, int>(z => z)));
+            while (true)
+            {
+                var response = Console.ReadLine();
 
-            var result3 = new Func<Func<int, int>, Func<int, int>>(x => x)(new Func<int, int>(y => y))(3);
+                if (string.IsNullOrWhiteSpace(response))
+                {
+                    continue;
+                }
 
-            // Any way to simplify the previous?
-            // UPDATE: 
-            var result4 = new Func<Func<int, int>, Func<int, int>>(x => x)(y => y);
-
-            var n = 5;
-            var result5 = new Func<Func<Func<int, int>, Func<int, int>>, Func<Func<int, int>, Func<int, int>>>(x => x)(y => y)(z => z)(n);
-
-            return 0;
+                switch (response.Trim().ToLower())
+                {
+                    case "y":
+                        return true;
+                    case "n":
+                        return false;
+                    default:
+                        Console.Write("Please type 'y' or 'n': ");
+                        break;
+                }
+            }
         }
 
         private static bool TryParseCommandLineArgs(string[] args, out string inFile)
@@ -90,10 +139,25 @@ namespace LCTranslator
             return true;
         }
 
-        private static void PrintUsage()
+        private static bool TryReadFileText(string fileName, out string contents)
         {
-            var executableName = AppDomain.CurrentDomain.FriendlyName;
-            Console.Error.WriteLine($"Usage: {executableName} [-i in_file]");
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                contents = Console.In.ReadToEnd();
+                return true;
+            }
+
+            try
+            {
+                contents = File.ReadAllText(fileName);
+                return true;
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine($"Unable to open file for reading: {e.Message}");
+                contents = string.Empty;
+                return false;
+            }
         }
     }
 }
