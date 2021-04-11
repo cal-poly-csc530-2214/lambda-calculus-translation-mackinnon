@@ -89,6 +89,11 @@ namespace LCTranslator.Analysis
         {
             e.Type = CastType<VoidTy>(_expectedType);
             e.Expr.Accept(this);
+
+            if (e.Expr.Type is VoidTy)
+            {
+                throw new LCException($"Cannot print an expression of type '{_tyTranslator.Translate(e.Expr.Type)}'.");
+            }
         }
 
         private void ExpectType(Expr expr, Ty expectedType)
