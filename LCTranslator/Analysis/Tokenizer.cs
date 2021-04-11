@@ -23,7 +23,7 @@ namespace LCTranslator.Analysis
         {
             if (_tokens.Count == 0)
             {
-                throw new LCException("Unexpected end-of-file encountered.");
+                throw LCErrors.UnexpectedEndOfFile();
             }
 
             return _tokens.Dequeue();
@@ -35,7 +35,7 @@ namespace LCTranslator.Analysis
 
             if (token != expected)
             {
-                throw new LCException($"Invalid token '{token}' (expected '{expected}').");
+                throw LCErrors.InvalidToken(token, expected);
             }
         }
     }

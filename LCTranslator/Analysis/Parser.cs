@@ -11,7 +11,8 @@ namespace LCTranslator.Analysis
             _tokens = new Tokenizer(program);
         }
 
-        public Expr ParseExpression() => ParseExpression(_tokens.GetNext());
+        public Expr ParseExpression()
+            => ParseExpression(_tokens.GetNext());
 
         private Expr ParseExpression(string firstToken)
             => firstToken switch

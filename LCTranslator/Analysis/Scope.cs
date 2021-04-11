@@ -33,7 +33,7 @@ namespace LCTranslator.Analysis
                 }
             }
 
-            throw new LCException($"Invalid use of free variable '{id}'.");
+            throw LCErrors.FreeVariable(id);
         }
     }
 }

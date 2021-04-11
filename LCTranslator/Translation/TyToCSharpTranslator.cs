@@ -8,7 +8,7 @@ namespace LCTranslator.Translation
             => type.Accept(this);
 
         public string Visit(UndefinedTy ty)
-            => throw new LCException("Part of the program had an undefined or ambiguous type.");
+            => throw LCErrors.UndefinedOrAmbiguousType();
 
         public string Visit(VoidTy ty)
             => "void";
@@ -20,7 +20,7 @@ namespace LCTranslator.Translation
         {
             if (ty.ArgType is VoidTy)
             {
-                throw new LCException($"An argument cannot be of type '{ty.ArgType.Accept(this)}'.");
+                throw LCErrors.VoidArgument();
             }
 
             if (ty.ReturnType is VoidTy)

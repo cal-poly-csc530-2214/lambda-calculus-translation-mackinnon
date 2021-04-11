@@ -1,17 +1,15 @@
 ﻿using LCTranslator.AST;
-using LCTranslator.Translation;
 
 namespace LCTranslator.Analysis
 {
     internal class TypeInferrer : IExprVisitor
     {
         private readonly Scope _scope = new();
-        private readonly TyToLCTranslator _tyTranslator = new();
 
         private Ty _expectedType = new UndefinedTy();
 
         public void InferTypes(Expr program)
-            => ExpectType(program, new UndefinedTy());
+            => ExpectType(program, new UndefinedTy(), true);
 
         void IExprVisitor.Visit(NumExpr e)
         {
@@ -34,7 +32,7 @@ namespace LCTranslator.Analysis
             _scope.PushVariable(e.IdExpr.Id);
 
             ExpectType(e.IdExpr, funcType.ArgType);
-            ExpectType(e.BodyExpr, funcType.ReturnType);
+            ExpectType(e.BodyExpr, funcType.ReturnType, true);
 
             var idType = _scope.PopVariable();
 
@@ -77,9 +75,7 @@ namespace LCTranslator.Analysis
 
             if (e.Then.Type != e.Else.Type)
             {
-                throw new LCException(
-                    $"The cases of an 'ifleq0' had mismatching types " +
-                    $"'{_tyTranslator.Translate(e.Then.Type)}' and '{_tyTranslator.Translate(e.Else.Type)}'.");
+                throw LCErrors.Ifleq0TypeMismatch(e.Then.Type, e.Else.Type);
             }
 
             e.Type = e.Then.Type;
@@ -88,20 +84,21 @@ namespace LCTranslator.Analysis
         void IExprVisitor.Visit(PrintlnExpr e)
         {
             e.Type = CastType<VoidTy>(_expectedType);
-            e.Expr.Accept(this);
 
-            if (e.Expr.Type is VoidTy)
-            {
-                throw new LCException($"Cannot print an expression of type '{_tyTranslator.Translate(e.Expr.Type)}'.");
-            }
+            ExpectType(e.Expr, new UndefinedTy());
         }
 
-        private void ExpectType(Expr expr, Ty expectedType)
+        private void ExpectType(Expr expr, Ty expectedType, bool canBeVoid = false)
         {
             var lastExpectedType = _expectedType;
             _expectedType = expectedType;
 
             expr.Accept(this);
+
+            if (!canBeVoid && expr.Type is VoidTy)
+            {
+                throw LCErrors.ValuesCannotBeVoid();
+            }
 
             _expectedType = lastExpectedType;
         }
@@ -115,9 +112,7 @@ namespace LCTranslator.Analysis
 
             if (type is not T result)
             {
-                throw new LCException(
-                    $"Expected type '{_tyTranslator.Translate(_expectedType)}', " +
-                    $"got '{_tyTranslator.Translate(new T())}'.");
+                throw LCErrors.UnexpectedType(_expectedType, new T());
             }
 
             return result;
@@ -134,9 +129,7 @@ namespace LCTranslator.Analysis
                     ReturnType = MergeTypes(originalFunc.ReturnType, newFunc.ReturnType),
                 },
                 _ when originalType == newType => originalType,
-                _ => throw new LCException(
-                    $"Encountered conflicting types '{_tyTranslator.Translate(originalType)}' " +
-                    $"and '{_tyTranslator.Translate(newType)}'.")
+                _ => throw LCErrors.ConflictingTypes(originalType, newType)
             };
     }
 }
