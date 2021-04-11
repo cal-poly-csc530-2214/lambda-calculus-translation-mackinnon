@@ -22,7 +22,7 @@ namespace LCTranslator.Translation
             => $"{e.FuncExpr.Accept(this)}({e.ArgExpr.Accept(this)})";
 
         string IExprVisitor<string>.Visit(ArithExpr e)
-            => $"{e.Left.Accept(this)} {e.Operation.AsChar()} {e.Right.Accept(this)}";
+            => $"({e.Left.Accept(this)} {e.Operation.AsChar()} {e.Right.Accept(this)})";
 
         string IExprVisitor<string>.Visit(Ifleq0Expr e)
             => e.Type switch

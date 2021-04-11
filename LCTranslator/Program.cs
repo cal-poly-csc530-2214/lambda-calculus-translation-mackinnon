@@ -58,9 +58,9 @@ namespace LCTranslator
                 typeInferrer.InferTypes(program);
 
                 var typedLcCode = lcTranslator.Translate(program);
-                cSharpCode = cSharpTranslator.Translate(program);
-
                 Console.WriteLine($"---Translated LC (typed)---\n{typedLcCode}\n");
+
+                cSharpCode = cSharpTranslator.Translate(program);
                 Console.WriteLine($"-------Translated C#-------\n{cSharpCode}\n");
 
                 return true;
